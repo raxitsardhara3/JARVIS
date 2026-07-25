@@ -57,6 +57,7 @@ from actions.background_monitor import (
     add_monitor, remove_monitor, list_monitors, check_all as monitor_check_all,
 )
 from core.action_registry import UniversalActionRegistry
+from core.planning import PlannerAPI
 
 from core.task_engine import Task, TaskExecutor, TaskManager, TaskStep
 from actions.web_search        import _news as _fetch_news_sync
@@ -553,6 +554,7 @@ TOOL_DECLARATIONS = [
 ACTION_REGISTRY = UniversalActionRegistry()
 ACTION_REGISTRY.load_from_tool_declarations(TOOL_DECLARATIONS)
 ACTION_REGISTRY.discover()
+PLANNER_API = PlannerAPI(ACTION_REGISTRY)
 
 # --- Plugin system ---
 
@@ -712,11 +714,26 @@ class JarvisLive:
         )
 
     async def _execute_tool(self, fc) -> types.FunctionResponse:
-        """Execute one LLM tool call through the centralized task engine."""
+        """Execute one LLM tool call through the centralized task engine.
+
+        Gemini Live still dispatches individual function calls for backward
+        compatibility.  The planning engine is invoked here as an advisory layer
+        so requests can be represented as Task Engine-compatible plans without
+        changing the existing direct tool execution behavior.
+        """
         registry_entry = ACTION_REGISTRY.get(fc.name)
         registry_errors = ACTION_REGISTRY.validate(fc.name, dict(fc.args or {}))
         if registry_errors:
             print(f"[ActionRegistry] {fc.name}: {'; '.join(registry_errors)}")
+
+        planning_result = PLANNER_API.create_plan(
+            f"Run {fc.name}",
+            source="gemini_live",
+            tool_name=fc.name,
+        )
+        if planning_result.errors:
+            print(f"[Planner] {fc.name}: {'; '.join(planning_result.errors)}")
+
         task = Task(
             title=f"LLM tool: {fc.name}",
             description=(
@@ -724,10 +741,6 @@ class JarvisLive:
                 if registry_entry else
                 "Single-step task generated from a Gemini Live function call."
             ),
-
-        task = Task(
-            title=f"LLM tool: {fc.name}",
-            description="Single-step task generated from a Gemini Live function call.",
             steps=[TaskStep(
                 action_name="llm_tool_call",
                 description=f"Run existing action module for {fc.name}",
@@ -738,14 +751,13 @@ class JarvisLive:
                 "source": "gemini_live",
                 "tool_name": fc.name,
                 "function_call_id": fc.id,
+                "planner_plan_id": planning_result.plan.id if planning_result.plan else None,
                 "registry_category": (
                     registry_entry.metadata.category.value
                     if registry_entry and hasattr(registry_entry.metadata.category, "value")
                     else str(registry_entry.metadata.category) if registry_entry else None
                 ),
             },
-
-            metadata={"source": "gemini_live", "tool_name": fc.name, "function_call_id": fc.id},
         )
         result = await self._task_manager.execute(task)
         if result.step_results:
