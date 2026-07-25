@@ -57,6 +57,7 @@ from actions.background_monitor import (
     add_monitor, remove_monitor, list_monitors, check_all as monitor_check_all,
 )
 from core.action_registry import UniversalActionRegistry
+
 from core.task_engine import Task, TaskExecutor, TaskManager, TaskStep
 from actions.web_search        import _news as _fetch_news_sync
 from memory.config_manager     import get_brief_enabled
@@ -723,6 +724,10 @@ class JarvisLive:
                 if registry_entry else
                 "Single-step task generated from a Gemini Live function call."
             ),
+
+        task = Task(
+            title=f"LLM tool: {fc.name}",
+            description="Single-step task generated from a Gemini Live function call.",
             steps=[TaskStep(
                 action_name="llm_tool_call",
                 description=f"Run existing action module for {fc.name}",
@@ -739,6 +744,8 @@ class JarvisLive:
                     else str(registry_entry.metadata.category) if registry_entry else None
                 ),
             },
+
+            metadata={"source": "gemini_live", "tool_name": fc.name, "function_call_id": fc.id},
         )
         result = await self._task_manager.execute(task)
         if result.step_results:
