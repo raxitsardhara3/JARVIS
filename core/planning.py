@@ -245,6 +245,11 @@ class PlanBuilder:
             action, params = "open_app", {"app_name": re.sub(r"^(open|launch|start)\s+", "", text, flags=re.I).strip()}
         elif "youtube" in lower and "search" in lower:
             action, params = "browser_automation", {"capability": "navigation", "action": "search", "parameters": {"query": re.sub(r"search\s+youtube\s+for\s+", "", text, flags=re.I), "engine": "google"}}
+
+        if lower.startswith(("open ", "launch ", "start ")):
+            action, params = "open_app", {"app_name": re.sub(r"^(open|launch|start)\s+", "", text, flags=re.I).strip()}
+        elif "youtube" in lower and "search" in lower:
+            action, params = "youtube_video", {"action": "play", "query": re.sub(r"search\s+youtube\s+for\s+", "", text, flags=re.I)}
         elif "clone" in lower or "install dependencies" in lower or "run the project" in lower or "react project" in lower or "portfolio website" in lower:
             action, params = "dev_agent", {"description": text}
         elif "screenshot" in lower or "screen shot" in lower:
@@ -254,6 +259,7 @@ class PlanBuilder:
             action, params = "universal_computer", {"capability": "clipboard", "action": clipboard_action, "parameters": {}}
         elif any(token in lower for token in ("click", "scroll", "drag", "hotkey", "shortcut", "focus window", "resize window", "move window")):
             action, params = "universal_computer", {"capability": "desktop", "action": "show", "parameters": {}, "dry_run": True}
+
         desc = f"{text[0].upper() + text[1:] if text else action}"
         return ExecutionStep(id=f"step-{index}", action_name=action, description=desc, parameters=params,
                              dependencies=[] if index == 1 else [f"step-{index-1}"],
