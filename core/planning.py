@@ -237,6 +237,15 @@ class PlanBuilder:
     def _step_for_part(self, text: str, index: int) -> ExecutionStep | None:
         lower = text.lower()
         action, params = "web_search", {"query": text, "mode": "search"}
+        browser_targets = {"github": "https://github.com", "google": "https://google.com", "chatgpt": "https://chatgpt.com", "youtube": "https://youtube.com"}
+        opened_target = re.sub(r"^(open|launch|start)\s+", "", text, flags=re.I).strip().lower()
+        if lower.startswith(("open ", "launch ", "start ")) and opened_target in browser_targets:
+            action, params = "browser_automation", {"capability": "navigation", "action": "open_url", "parameters": {"url": browser_targets[opened_target]}}
+        elif lower.startswith(("open ", "launch ", "start ")):
+            action, params = "open_app", {"app_name": re.sub(r"^(open|launch|start)\s+", "", text, flags=re.I).strip()}
+        elif "youtube" in lower and "search" in lower:
+            action, params = "browser_automation", {"capability": "navigation", "action": "search", "parameters": {"query": re.sub(r"search\s+youtube\s+for\s+", "", text, flags=re.I), "engine": "google"}}
+
         if lower.startswith(("open ", "launch ", "start ")):
             action, params = "open_app", {"app_name": re.sub(r"^(open|launch|start)\s+", "", text, flags=re.I).strip()}
         elif "youtube" in lower and "search" in lower:

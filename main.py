@@ -45,6 +45,7 @@ from actions.screen_processor  import _capture_camera, _capture_screen
 from actions.youtube_video     import youtube_video
 from actions.desktop           import desktop_control
 from actions.browser_control   import browser_control
+from actions.browser_automation import browser_automation
 from actions.file_controller   import file_controller
 from actions.code_helper       import code_helper
 from actions.dev_agent         import dev_agent
@@ -253,6 +254,25 @@ TOOL_DECLARATIONS = [
             },
             "required": []
         }
+    },
+    {
+        "name": "browser_automation",
+        "description": (
+            "Browser Automation Engine 2.0. Use for advanced browser workflows: sessions, profiles, "
+            "tabs, windows, navigation, page reading, DOM elements, clicks, forms, uploads, downloads, "
+            "cookies, authentication planning, history, bookmarks, wait/retry/recovery, and screenshots. "
+            "Keep using browser_control for simple backward-compatible browser operations."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "capability": {"type": "STRING", "description": "browser | navigation | tab | window | element | input | dom | cookies | download | upload | auth | history | bookmark | page"},
+                "action": {"type": "STRING", "description": "Capability-specific action, e.g. open, open_url, search, click, type, wait, screenshot"},
+                "parameters": {"type": "OBJECT", "description": "Capability-specific parameters"},
+                "dry_run": {"type": "BOOLEAN", "description": "Plan/log without invoking live browser automation"},
+            },
+            "required": ["capability", "action"],
+        },
     },
     {
         "name": "browser_control",
@@ -821,6 +841,10 @@ class JarvisLive:
             elif name == "weather_report":
                 r = await loop.run_in_executor(None, lambda: weather_action(parameters=args, player=self.ui))
                 result = r or "Weather delivered."
+
+            elif name == "browser_automation":
+                r = await loop.run_in_executor(None, lambda: browser_automation(parameters=args, player=self.ui))
+                result = r or "Done."
 
             elif name == "browser_control":
                 r = await loop.run_in_executor(None, lambda: browser_control(parameters=args, player=self.ui))
