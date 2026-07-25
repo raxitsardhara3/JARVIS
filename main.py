@@ -56,6 +56,8 @@ from actions.proactive         import ProactiveEngine
 from actions.background_monitor import (
     add_monitor, remove_monitor, list_monitors, check_all as monitor_check_all,
 )
+from core.action_registry import UniversalActionRegistry
+
 from core.task_engine import Task, TaskExecutor, TaskManager, TaskStep
 from actions.web_search        import _news as _fetch_news_sync
 from memory.config_manager     import get_brief_enabled
@@ -548,6 +550,10 @@ TOOL_DECLARATIONS = [
     },
 ]
 
+ACTION_REGISTRY = UniversalActionRegistry()
+ACTION_REGISTRY.load_from_tool_declarations(TOOL_DECLARATIONS)
+ACTION_REGISTRY.discover()
+
 # --- Plugin system ---
 
 
@@ -707,6 +713,18 @@ class JarvisLive:
 
     async def _execute_tool(self, fc) -> types.FunctionResponse:
         """Execute one LLM tool call through the centralized task engine."""
+        registry_entry = ACTION_REGISTRY.get(fc.name)
+        registry_errors = ACTION_REGISTRY.validate(fc.name, dict(fc.args or {}))
+        if registry_errors:
+            print(f"[ActionRegistry] {fc.name}: {'; '.join(registry_errors)}")
+        task = Task(
+            title=f"LLM tool: {fc.name}",
+            description=(
+                registry_entry.metadata.description
+                if registry_entry else
+                "Single-step task generated from a Gemini Live function call."
+            ),
+
         task = Task(
             title=f"LLM tool: {fc.name}",
             description="Single-step task generated from a Gemini Live function call.",
@@ -716,6 +734,17 @@ class JarvisLive:
                 parameters={"function_call": fc},
                 retry_count=0,
             )],
+            metadata={
+                "source": "gemini_live",
+                "tool_name": fc.name,
+                "function_call_id": fc.id,
+                "registry_category": (
+                    registry_entry.metadata.category.value
+                    if registry_entry and hasattr(registry_entry.metadata.category, "value")
+                    else str(registry_entry.metadata.category) if registry_entry else None
+                ),
+            },
+
             metadata={"source": "gemini_live", "tool_name": fc.name, "function_call_id": fc.id},
         )
         result = await self._task_manager.execute(task)
