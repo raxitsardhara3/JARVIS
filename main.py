@@ -50,6 +50,7 @@ from actions.code_helper       import code_helper
 from actions.dev_agent         import dev_agent
 from actions.web_search        import web_search as web_search_action
 from actions.computer_control  import computer_control
+from actions.universal_computer import universal_computer
 from actions.game_updater      import game_updater
 from actions.system_monitor    import SystemMonitor, get_system_status
 from actions.proactive         import ProactiveEngine
@@ -438,6 +439,25 @@ TOOL_DECLARATIONS = [
                 },
             },
             "required": ["action"],
+        },
+    },
+    {
+        "name": "universal_computer",
+        "description": (
+            "Universal computer control engine. Use for low-level desktop automation: "
+            "mouse, keyboard, clipboard, windows, applications, desktop, screen, monitors, "
+            "file explorer, and guarded system operations. Prefer existing specialized tools "
+            "when available; use this for general OS control and future automation workflows."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "capability": {"type": "STRING", "description": "mouse | keyboard | clipboard | window | application | desktop | screen | monitor | file_explorer | system"},
+                "action": {"type": "STRING", "description": "Capability-specific action, e.g. click, hotkey, paste, focus, launch, screenshot"},
+                "parameters": {"type": "OBJECT", "description": "Capability-specific parameters"},
+                "dry_run": {"type": "BOOLEAN", "description": "Plan/log without touching the OS"},
+            },
+            "required": ["capability", "action"],
         },
     },
     {
@@ -889,6 +909,10 @@ class JarvisLive:
                     None,
                     lambda: file_processor(parameters=args, player=self.ui, speak=self.speak)
                 )
+                result = r or "Done."
+
+            elif name == "universal_computer":
+                r = await loop.run_in_executor(None, lambda: universal_computer(parameters=args, player=self.ui))
                 result = r or "Done."
 
             elif name == "computer_control":

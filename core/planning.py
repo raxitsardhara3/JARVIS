@@ -243,6 +243,14 @@ class PlanBuilder:
             action, params = "youtube_video", {"action": "play", "query": re.sub(r"search\s+youtube\s+for\s+", "", text, flags=re.I)}
         elif "clone" in lower or "install dependencies" in lower or "run the project" in lower or "react project" in lower or "portfolio website" in lower:
             action, params = "dev_agent", {"description": text}
+        elif "screenshot" in lower or "screen shot" in lower:
+            action, params = "universal_computer", {"capability": "screen", "action": "screenshot", "parameters": {}}
+        elif "clipboard" in lower or lower in {"copy", "paste"}:
+            clipboard_action = "paste" if "paste" in lower else "copy"
+            action, params = "universal_computer", {"capability": "clipboard", "action": clipboard_action, "parameters": {}}
+        elif any(token in lower for token in ("click", "scroll", "drag", "hotkey", "shortcut", "focus window", "resize window", "move window")):
+            action, params = "universal_computer", {"capability": "desktop", "action": "show", "parameters": {}, "dry_run": True}
+
         desc = f"{text[0].upper() + text[1:] if text else action}"
         return ExecutionStep(id=f"step-{index}", action_name=action, description=desc, parameters=params,
                              dependencies=[] if index == 1 else [f"step-{index-1}"],
